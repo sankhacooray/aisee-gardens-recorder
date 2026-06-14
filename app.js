@@ -36,6 +36,9 @@ var recording = false, started = false, follow = true, lastFix = null, watchId =
 
 /* ── Boot ────────────────────────────────────────────────── */
 window.addEventListener('load', function () {
+  // Mobile-only: the recorder needs a phone's GPS. Desktops (except localhost
+  // dev) get a friendly "open on your phone" screen with a QR to this URL.
+  if (!isMobileDevice() && !isLocalDev()) { showDesktopBlock(); return; }
   wireUi();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
   handleAuthCallback();          // catch #token=… coming back from the broker
@@ -43,6 +46,27 @@ window.addEventListener('load', function () {
   if (AUTH && AUTH.token) startAuthed();
   else showSignIn();
 });
+
+/* ── Device gate (mobile-only) ───────────────────────────── */
+function isLocalDev() {
+  var h = location.hostname;
+  return h === 'localhost' || h === '127.0.0.1' || h === '';
+}
+function isMobileDevice() {
+  // Prefer the explicit hint when the browser provides it (Chromium).
+  try { if (navigator.userAgentData && typeof navigator.userAgentData.mobile === 'boolean') return navigator.userAgentData.mobile; } catch (e) {}
+  var ua = navigator.userAgent || navigator.vendor || '';
+  if (/Android|iPhone|iPod|Windows Phone|webOS|BlackBerry|Opera Mini|IEMobile|Mobile/i.test(ua)) return true;
+  // iPadOS 13+ reports as desktop Safari — detect the touch screen instead.
+  if (/iPad|Macintosh/.test(ua) && navigator.maxTouchPoints > 1) return true;
+  return false;
+}
+function showDesktopBlock() {
+  var url = location.origin + location.pathname;
+  var a = $('dbUrl'); a.textContent = url; a.href = url;
+  $('dbQr').src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=0&data=' + encodeURIComponent(url);
+  show('desktopBlock');
+}
 
 /* ── Login broker flow (AHL pattern; no Google Identity Services) ───── */
 function showSignIn(msg) { $('signinMsg').textContent = msg || ''; show('signinSheet'); }
@@ -325,19 +349,12 @@ function resetRoute() {
   updateCounts(); $('dist').textContent = '';
 }
 
-/* ── Profile balloon (identity + sign out + advanced override) ──── */
+/* ── Profile balloon (identity + sign out) ──── */
 function toggleProfile() {
   var pop = $('profilePop');
   if (!pop.hidden) { pop.hidden = true; return; }
   setProfile((AUTH && (AUTH.name || AUTH.email)) || '', (AUTH && AUTH.email) || '');
-  var ov = ''; try { ov = localStorage.getItem(OVERRIDE_KEY) || ''; } catch (e) {}
-  $('cfgUrl').value = ov; $('cfgMsg').textContent = '';
   pop.hidden = false;
-}
-function saveSettings() {
-  var v = $('cfgUrl').value.trim();
-  try { if (v) localStorage.setItem(OVERRIDE_KEY, v); else localStorage.removeItem(OVERRIDE_KEY); } catch (e) {}
-  hide('profilePop'); toast('Settings saved');
 }
 function signOut() { clearSession(); hide('profilePop'); showSignIn('Signed out.'); }
 
@@ -354,7 +371,6 @@ function wireUi() {
   $('projSel').addEventListener('change', function () { try { localStorage.setItem(PROJECT_KEY, this.value); } catch (e) {} });
   $('poiSave').addEventListener('click', savePoi);
   $('saveGo').addEventListener('click', doSave);
-  $('cfgSave').addEventListener('click', saveSettings);
   $('signinBtn').addEventListener('click', signIn);
   $('signOutBtn').addEventListener('click', signOut);
   $('resNew').addEventListener('click', resetRoute);
