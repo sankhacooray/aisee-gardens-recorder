@@ -35,13 +35,6 @@
       <span class="pop-email" id="popEmail"></span>
     </div>
     <button class="btn ghost" id="signOutBtn"><i class="fa-solid fa-right-from-bracket"></i>&nbsp; Sign out</button>
-    <details class="pop-adv">
-      <summary>Advanced</summary>
-      <label>Backend /exec URL override (optional)
-        <input id="cfgUrl" type="url" placeholder="leave blank to use the default" /></label>
-      <div class="row"><button class="btn primary" id="cfgSave">Save</button></div>
-      <p class="msg" id="cfgMsg"></p>
-    </details>
   </div>
 
   <!-- Map -->
@@ -156,6 +149,19 @@
         Sign in with Google
       </button>
       <p class="msg" id="signinMsg"></p>
+    </div>
+  </div>
+
+  <!-- Desktop block — the recorder needs a phone's GPS, so gate non-mobile devices -->
+  <div class="desktop-block" id="desktopBlock" hidden>
+    <div class="db-card">
+      <div class="db-icon"><i class="fa-solid fa-mobile-screen-button"></i></div>
+      <h2>Open on your phone</h2>
+      <p>The Recorder is meant to be used on a mobile device — it needs your phone's GPS
+        sensor to record the path as you walk.</p>
+      <img class="db-qr" id="dbQr" alt="QR code linking to this page" width="220" height="220" />
+      <p class="db-hint">Scan this code with your phone's camera to open it there.</p>
+      <p class="db-url"><a id="dbUrl" href="#" rel="noopener"></a></p>
     </div>
   </div>
 
