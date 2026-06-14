@@ -52,6 +52,18 @@ def main():
         with open(swp, "w") as fh:
             fh.write(sw)
 
+        # Cache-bust the linked JS/CSS so a new deploy takes effect on the next
+        # load. index.html is fetched network-first, so the versioned URLs pull
+        # fresh app.js/styles.css from the network instead of the (cache-first)
+        # service-worker copy of the previous build.
+        idxp = os.path.join(tmp, "index.html")
+        with open(idxp) as fh:
+            idx = fh.read()
+        idx = idx.replace('href="styles.css"', 'href="styles.css?v=%s"' % VERSION)
+        idx = idx.replace('src="app.js"', 'src="app.js?v=%s"' % VERSION)
+        with open(idxp, "w") as fh:
+            fh.write(idx)
+
         open(os.path.join(tmp, ".nojekyll"), "w").close()
         cname = os.environ.get("CNAME")
         if cname:
