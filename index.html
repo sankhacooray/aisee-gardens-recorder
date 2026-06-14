@@ -24,9 +24,25 @@
     <div class="title">Recorder</div>
     <select class="projsel" id="projSel" aria-label="Project" title="Project"><option value="">— project —</option></select>
     <div class="gps" id="gps"><span class="dot" id="gpsDot"></span><span id="gpsText">no fix</span></div>
-    <span class="who" id="userName"></span>
-    <button class="gear" id="gearBtn" aria-label="Account" title="Account"><i class="fa-solid fa-gear"></i></button>
+    <button class="iconbtn" id="helpBtn" aria-label="How it works" title="How it works"><i class="fa-solid fa-circle-question"></i></button>
+    <button class="iconbtn" id="profileBtn" aria-label="Account" title="Account"><i class="fa-solid fa-circle-user"></i></button>
   </header>
+
+  <!-- Profile balloon (anchored under the profile button) -->
+  <div class="popover" id="profilePop" hidden>
+    <div class="pop-id">
+      <span class="pop-name" id="popName">—</span>
+      <span class="pop-email" id="popEmail"></span>
+    </div>
+    <button class="btn ghost" id="signOutBtn"><i class="fa-solid fa-right-from-bracket"></i>&nbsp; Sign out</button>
+    <details class="pop-adv">
+      <summary>Advanced</summary>
+      <label>Backend /exec URL override (optional)
+        <input id="cfgUrl" type="url" placeholder="leave blank to use the default" /></label>
+      <div class="row"><button class="btn primary" id="cfgSave">Save</button></div>
+      <p class="msg" id="cfgMsg"></p>
+    </details>
+  </div>
 
   <!-- Map -->
   <div id="map"></div>
@@ -85,23 +101,35 @@
     </div>
   </div>
 
-  <!-- Settings sheet -->
-  <div class="sheet" id="settingsSheet" hidden>
-    <div class="card">
-      <h2>Account</h2>
-      <p class="hint">Signed in as <strong id="setEmail">—</strong>. Identity and the Maps key come from
-        the backend after sign-in — nothing is pasted here.</p>
-      <div class="row">
-        <button class="btn ghost" id="signOutBtn">Sign out</button>
-        <button class="btn ghost" data-close="settingsSheet">Close</button>
+  <!-- Help screen (what the bottom buttons do) -->
+  <div class="helpscreen" id="helpScreen" hidden>
+    <header class="help-bar">
+      <span class="help-title">How recording works</span>
+      <button class="iconbtn" id="helpClose" aria-label="Close" title="Close"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <div class="help-body">
+      <p class="help-intro">Walk the route with your phone. The app draws your path on the map by
+        itself — you just tap the buttons below to mark the important spots.</p>
+      <div class="help-row">
+        <span class="help-btn rec"><i class="fa-solid fa-circle"></i></span>
+        <div class="help-text"><b>Record</b><p>Start walking your route. Tap again to pause, and once more to carry on.</p></div>
       </div>
-      <details style="margin-top:16px">
-        <summary style="font-size:13px;color:var(--ink-70);cursor:pointer">Advanced</summary>
-        <label style="margin-top:10px">Backend /exec URL override (optional)
-          <input id="cfgUrl" type="url" placeholder="leave blank to use the default" /></label>
-        <div class="row"><button class="btn primary" id="cfgSave">Save</button></div>
-        <p class="msg" id="cfgMsg"></p>
-      </details>
+      <div class="help-row">
+        <span class="help-btn"><i class="fa-solid fa-location-dot"></i></span>
+        <div class="help-text"><b>Checkpoint</b><p>Mark a spot the route must pass through — like a turn or a junction.</p></div>
+      </div>
+      <div class="help-row">
+        <span class="help-btn"><i class="fa-solid fa-star"></i></span>
+        <div class="help-text"><b>POI</b><p>Mark a place worth stopping at and give it a name and a short note. This is what visitors will hear about.</p></div>
+      </div>
+      <div class="help-row">
+        <span class="help-btn"><i class="fa-solid fa-rotate-left"></i></span>
+        <div class="help-text"><b>Undo</b><p>Remove the last checkpoint or POI you added, in case of a mistake.</p></div>
+      </div>
+      <div class="help-row">
+        <span class="help-btn fin"><i class="fa-solid fa-check"></i></span>
+        <div class="help-text"><b>Finish</b><p>Stop and save the route when you're done walking.</p></div>
+      </div>
     </div>
   </div>
 
