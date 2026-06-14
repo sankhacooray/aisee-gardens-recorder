@@ -84,3 +84,24 @@ POST sends `waypoints` (checkpoints), `pois`, and `track_polyline` (the encoded 
 `4766` (see workspace [PORTS.md](../PORTS.md)) — used for local static serving
 (`python3 -m http.server 4766`, or the `.vscode/launch.json` "Serve" config). Nothing binds it in
 production; GitHub Pages serves the deployed site.
+
+## Temporary deployment (testing) — 2026-06-14
+
+Live for testing at **<https://aiseecoder.sankhacooray.com/>** (deliberately temporary — meant to be
+torn down later).
+
+- **Repo:** `git@github.com:sankhacooray/aisee-gardens-recorder.git` (public; pushed over HTTPS via the
+  `gh` credential helper because no SSH key is loaded in this env).
+- **Deploy:** `CNAME=aiseecoder.sankhacooray.com python3 deploy.py` → pushes the `gh-pages` branch.
+  GitHub Pages serves it; the `CNAME` file pins the custom domain.
+- **DNS:** Cloudflare zone `sankhacooray.com` — a **DNS-only** (unproxied) `CNAME aiseecoder →
+  sankhacooray.github.io`. Unproxied so GitHub can provision its own Let's Encrypt cert.
+- **Backend allow-list (REQUIRED for sign-in):** the backend only mints a session for return URLs on
+  its `AISEE_RETURN_URLS` list. Run in the backend Apps Script editor:
+  `addReturnUrl('https://aiseecoder.sankhacooray.com/')`.
+
+### Teardown
+
+1. Delete the Cloudflare `aiseecoder` CNAME record.
+2. `removeReturnUrl('https://aiseecoder.sankhacooray.com/')` in the backend editor.
+3. Disable GitHub Pages / archive or delete `sankhacooray/aisee-gardens-recorder`.
