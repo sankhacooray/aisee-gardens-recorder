@@ -49,8 +49,14 @@ function showSignIn(msg) { $('signinMsg').textContent = msg || ''; show('signinS
 
 function startAuthed() {
   hide('signinSheet');
-  $('userName').textContent = AUTH.name || AUTH.email || '';
+  setProfile(AUTH.name || AUTH.email || '', AUTH.email || '');
   bootstrap();
+}
+
+/* Fill the profile balloon's name + email. */
+function setProfile(name, email) {
+  $('popName').textContent = name || '(not signed in)';
+  $('popEmail').textContent = email || '';
 }
 
 function signIn() {
@@ -91,7 +97,8 @@ function bootstrap() {
     .then(function (r) { return r.json(); })
     .then(function (res) {
       if (!res || !res.ok) { clearSession(); showSignIn((res && res.error) || 'Session expired — please sign in again.'); return; }
-      $('userName').textContent = (res.user && (res.user.name || res.user.email)) || AUTH.name || AUTH.email;
+      setProfile((res.user && (res.user.name || res.user.email)) || AUTH.name || AUTH.email,
+                 (res.user && res.user.email) || AUTH.email || '');
       fillProjects(res.projects || [], res.defaultProjectId || '');
       mapsKey = res.mapsKey || '';
       if (!mapsKey) { showMapMsg('No Maps key set on the backend — run setMapsApiKey() in the editor.'); return; }
@@ -318,19 +325,21 @@ function resetRoute() {
   updateCounts(); $('dist').textContent = '';
 }
 
-/* ── Settings (identity + sign out + advanced override) ──── */
-function openSettings() {
-  $('setEmail').textContent = (AUTH && AUTH.email) || '(not signed in)';
+/* ── Profile balloon (identity + sign out + advanced override) ──── */
+function toggleProfile() {
+  var pop = $('profilePop');
+  if (!pop.hidden) { pop.hidden = true; return; }
+  setProfile((AUTH && (AUTH.name || AUTH.email)) || '', (AUTH && AUTH.email) || '');
   var ov = ''; try { ov = localStorage.getItem(OVERRIDE_KEY) || ''; } catch (e) {}
   $('cfgUrl').value = ov; $('cfgMsg').textContent = '';
-  show('settingsSheet');
+  pop.hidden = false;
 }
 function saveSettings() {
   var v = $('cfgUrl').value.trim();
   try { if (v) localStorage.setItem(OVERRIDE_KEY, v); else localStorage.removeItem(OVERRIDE_KEY); } catch (e) {}
-  hide('settingsSheet'); toast('Settings saved');
+  hide('profilePop'); toast('Settings saved');
 }
-function signOut() { clearSession(); hide('settingsSheet'); showSignIn('Signed out.'); }
+function signOut() { clearSession(); hide('profilePop'); showSignIn('Signed out.'); }
 
 /* ── UI wiring ───────────────────────────────────────────── */
 function wireUi() {
@@ -339,7 +348,9 @@ function wireUi() {
   $('poiBtn').addEventListener('click', openPoi);
   $('undoBtn').addEventListener('click', undo);
   $('finBtn').addEventListener('click', openSave);
-  $('gearBtn').addEventListener('click', openSettings);
+  $('profileBtn').addEventListener('click', toggleProfile);
+  $('helpBtn').addEventListener('click', function () { show('helpScreen'); });
+  $('helpClose').addEventListener('click', function () { hide('helpScreen'); });
   $('projSel').addEventListener('change', function () { try { localStorage.setItem(PROJECT_KEY, this.value); } catch (e) {} });
   $('poiSave').addEventListener('click', savePoi);
   $('saveGo').addEventListener('click', doSave);
@@ -349,6 +360,16 @@ function wireUi() {
   $('resNew').addEventListener('click', resetRoute);
   document.querySelectorAll('[data-close]').forEach(function (b) {
     b.addEventListener('click', function () { hide(b.getAttribute('data-close')); });
+  });
+
+  // Dismiss the profile balloon on an outside click or Escape.
+  document.addEventListener('click', function (e) {
+    if ($('profilePop').hidden) return;
+    if (e.target.closest('#profilePop') || e.target.closest('#profileBtn')) return;
+    $('profilePop').hidden = true;
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { $('profilePop').hidden = true; hide('helpScreen'); }
   });
 }
 
