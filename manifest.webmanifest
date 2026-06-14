@@ -1,0 +1,14 @@
+{
+  "name": "Gardens Route Recorder",
+  "short_name": "Recorder",
+  "description": "Walk a route, mark POIs and checkpoints, and save it to the Aisee gardens backend.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FAFAFA",
+  "theme_color": "#5E519A",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
