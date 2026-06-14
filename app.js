@@ -87,7 +87,11 @@ function signIn() {
   var nonce = randomNonce();
   try { localStorage.setItem(NONCE_KEY, nonce); }
   catch (e) { alert('Your browser blocked site storage; sign-in needs it (try a non-private window).'); return; }
-  location.assign(backendUrl() + '?action=login&return=' + encodeURIComponent(returnUrl()) + '&nonce=' + encodeURIComponent(nonce));
+  var loginUrl = backendUrl() + '?action=login&return=' + encodeURIComponent(returnUrl()) + '&nonce=' + encodeURIComponent(nonce);
+  // Route through Google's account chooser so users on a multi-account device pick
+  // their Aisee/AHLab account instead of the browser's default (Apps Script web
+  // apps otherwise silently reuse the active /u/N/ account with no picker).
+  location.assign('https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(loginUrl));
 }
 
 function handleAuthCallback() {
