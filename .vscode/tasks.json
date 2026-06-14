@@ -1,0 +1,23 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Serve recorder (4766)",
+      "type": "shell",
+      "command": "python3 -m http.server 4766 --bind 127.0.0.1",
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": [],
+      "detail": "Static server on http://localhost:4766 (geolocation works on localhost). Ctrl+C to stop."
+    },
+    {
+      "label": "Deploy recorder (gh-pages)",
+      "type": "shell",
+      "command": "python3 deploy.py",
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": [],
+      "detail": "Publish the static files to GitHub Pages (needs a git origin remote)."
+    }
+  ]
+}
