@@ -16,7 +16,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://api.fontshare.com/v2/css?f[]=chillax@1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
-<link rel="stylesheet" href="styles.css?v=20260629-233010" />
+<link rel="stylesheet" href="styles.css?v=20260629-235047" />
 </head>
 <body>
   <!-- Top bar -->
@@ -41,17 +41,21 @@
   <!-- Map -->
   <div id="map"></div>
 
-  <!-- Editing banner — shown when extending an already-recorded tour -->
-  <div class="editbar" id="editBanner" hidden>
-    <i class="fa-solid fa-pen-to-square"></i>
-    <span class="editbar-txt">Extending <b id="editName">tour</b> — record to add to it</span>
-    <button class="editbar-x" id="editExit" title="Start a new route instead">New route</button>
-  </div>
+  <!-- Top banner stack — editing banner + "too far" flag stack vertically with
+       a gap, so neither overlaps regardless of how many lines each wraps to. -->
+  <div class="topbanners" id="topBanners">
+    <!-- Editing banner — shown when extending an already-recorded tour -->
+    <div class="editbar" id="editBanner" hidden>
+      <i class="fa-solid fa-pen-to-square"></i>
+      <span class="editbar-txt">Extending <b id="editName">tour</b> — record to add to it</span>
+      <button class="editbar-x" id="editExit" title="Start a new route instead">New route</button>
+    </div>
 
-  <!-- "Too far from the tour" guard flag -->
-  <div class="farflag" id="farFlag" hidden>
-    <i class="fa-solid fa-location-arrow"></i>
-    <span>You're away from this tour's area — walk back to it to keep recording.</span>
+    <!-- "Too far from the tour" guard flag -->
+    <div class="farflag" id="farFlag" hidden>
+      <i class="fa-solid fa-location-arrow"></i>
+      <span>You're away from this tour's area — walk back to it to keep recording.</span>
+    </div>
   </div>
 
   <!-- Live counters -->
@@ -203,6 +207,6 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="app.js?v=20260629-233010"></script>
+  <script src="app.js?v=20260629-235047"></script>
 </body>
 </html>

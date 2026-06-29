@@ -281,7 +281,10 @@ function afterMark(msg) {
 function updateCounts() {
   var cp = marks.filter(function (m) { return m.kind === 'checkpoint'; }).length;
   var po = marks.filter(function (m) { return m.kind === 'poi'; }).length;
-  $('counts').textContent = cp + ' checkpoint' + (cp === 1 ? '' : 's') + ' · ' + po + ' POI' + (po === 1 ? '' : 's');
+  $('counts').innerHTML =
+    '<span class="c-cp">' + cp + ' checkpoint' + (cp === 1 ? '' : 's') + '</span>' +
+    ' · ' +
+    '<span class="c-poi">' + po + ' POI' + (po === 1 ? '' : 's') + '</span>';
 }
 function updateDist() {
   if (!google.maps.geometry || trackPath.length < 2) { $('dist').textContent = ''; return; }
@@ -524,7 +527,7 @@ function addExistingCheckpoint(w) {
   if (isNaN(lat) || isNaN(lng)) return;
   var m = { kind: 'checkpoint', existing: true, lat: lat, lng: lng, accuracy_m: num0(w.accuracy_m) };
   m.marker = new google.maps.Marker({ map: map, position: { lat: lat, lng: lng }, title: 'checkpoint',
-    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 4, fillColor: '#9AA6A0', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 1.5 } });
+    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#1971C2', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2.5 } });
   marks.push(m);
 }
 
