@@ -1,9 +1,9 @@
 /* Service worker — versioned cache.
- * Bump CACHE on each deploy (deploy.py substitutes 20260629-235047).
+ * Bump CACHE on each deploy (deploy.py substitutes 20260629-235802).
  * Navigation: network-first (fresh HTML). Static assets: cache-first (offline shell).
  * Never caches the Google Maps script or the backend API (always network). */
 
-var CACHE = 'recorder-20260629-235047';
+var CACHE = 'recorder-20260629-235802';
 var ASSETS = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', function (e) {
@@ -22,7 +22,9 @@ self.addEventListener('fetch', function (e) {
   if (url.origin !== self.location.origin) return;
 
   if (e.request.mode === 'navigate') {
-    e.respondWith(fetch(e.request).catch(function () { return caches.match('./index.html'); }));
+    // Always revalidate HTML against the network (bypass the browser's 10-min
+    // HTTP cache from GitHub Pages) so a new deploy shows up on the next load.
+    e.respondWith(fetch(e.request, { cache: 'no-store' }).catch(function () { return caches.match('./index.html'); }));
     return;
   }
   e.respondWith(caches.match(e.request).then(function (hit) { return hit || fetch(e.request); }));
