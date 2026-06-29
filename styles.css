@@ -39,6 +39,46 @@ body { display: flex; flex-direction: column; }
   background-repeat: no-repeat; background-position: right 9px center; background-size: 10px 6px;
 }
 .projsel option { color: #000; }
+
+/* Project chip in the top bar — opens the full-screen picker. */
+.projbtn {
+  max-width: 44vw; display: flex; align-items: center; gap: 7px; cursor: pointer;
+  font-family: inherit; font-size: 13px; font-weight: 600; color: #fff;
+  background-color: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25);
+  border-radius: 8px; padding: 7px 10px;
+}
+.projbtn #projBtnLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.projbtn i { font-size: 10px; opacity: .85; flex: 0 0 auto; }
+
+/* Full-screen project picker */
+.projscreen { position: fixed; inset: 0; z-index: 150; background: var(--bg); display: flex; flex-direction: column; }
+.projscreen[hidden] { display: none; }
+.proj-bar {
+  height: calc(var(--bar-h) + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top);
+  display: flex; align-items: center; gap: 12px; padding-left: 18px; padding-right: 12px;
+  background: var(--purple-deep); color: #fff; flex: 0 0 auto;
+}
+.proj-title { font-family: var(--display); font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
+.proj-bar .iconbtn { margin-left: auto; }
+.proj-body {
+  flex: 1 1 auto; overflow-y: auto; width: 100%; max-width: 620px; margin: 0 auto;
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
+  display: grid; gap: 10px; grid-template-columns: 1fr; align-content: start;
+}
+.proj-card {
+  position: relative; text-align: left; background: var(--card, #fff); border: 1.5px solid var(--line);
+  border-radius: 16px; padding: 15px 15px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 6px;
+  transition: border-color .12s, box-shadow .12s, transform .05s;
+}
+.proj-card:active { transform: translateY(1px); }
+.proj-card.sel { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(45,106,79,.14); }
+.proj-card .pc-name { font-family: var(--display); font-weight: 700; font-size: 16px; color: var(--ink); line-height: 1.2; }
+.proj-card .pc-desc { font-size: 12.5px; color: var(--ink-70); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.proj-card .pc-count {
+  margin-top: 2px; align-self: flex-start; font-size: 12px; font-weight: 700; color: var(--purple);
+  background: var(--chip, #eef3f0); border-radius: 999px; padding: 3px 10px;
+}
+.proj-card .pc-tick { position: absolute; top: 12px; right: 13px; color: var(--purple); font-size: 16px; }
 .gps { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-family: var(--mono); opacity: .95; }
 .gps .dot { width: 9px; height: 9px; border-radius: 50%; background: #c0392b; box-shadow: 0 0 0 0 rgba(255,255,255,.4); }
 .gps .dot.ok { background: #2ecc71; }
@@ -79,25 +119,92 @@ body { display: flex; flex-direction: column; }
 .map-msg { display: grid; place-items: center; height: 100%; padding: 24px; text-align: center; color: var(--ink-70); font-size: 14px; }
 .map-msg code { font-family: var(--mono); background: #fff; padding: 2px 6px; border-radius: 4px; }
 
-/* HUD counters */
+/* Top banner stack — holds the editing banner + "too far" flag, stacked with a
+   gap so they never overlap no matter how many lines each wraps to. */
+.topbanners {
+  position: absolute; left: 8px; right: 8px;
+  top: calc(var(--bar-h) + env(safe-area-inset-top) + 8px);
+  z-index: 9; display: flex; flex-direction: column; gap: 8px;
+  pointer-events: none;                 /* let map drags pass through the gaps */
+}
+.topbanners > * { pointer-events: auto; }
+
+/* Editing banner — extending an existing tour */
+.editbar {
+  display: flex; align-items: center; gap: 9px;
+  background: var(--purple-deep); color: #fff; border-radius: 12px;
+  padding: 8px 10px 8px 12px; font-size: 13px; box-shadow: 0 2px 12px rgba(0,0,0,.18);
+}
+.editbar[hidden] { display: none; }
+.editbar i { font-size: 14px; opacity: .9; }
+.editbar-txt { flex: 1; min-width: 0; }
+.editbar-txt b { font-weight: 700; }
+.editbar-x {
+  flex: 0 0 auto; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.3);
+  color: #fff; font-family: inherit; font-size: 12px; font-weight: 600; padding: 6px 10px;
+  border-radius: 8px; cursor: pointer;
+}
+
+/* "Too far from the tour" flag */
+.farflag {
+  display: flex; align-items: center; gap: 10px;
+  background: #B45309; color: #fff; border-radius: 12px;
+  padding: 10px 12px; font-size: 13px; font-weight: 600; line-height: 1.35;
+  box-shadow: 0 2px 12px rgba(0,0,0,.2);
+}
+.farflag[hidden] { display: none; }
+.farflag i { font-size: 16px; flex: 0 0 auto; }
+
+/* Tour picker list */
+.tourlist { max-height: 48vh; overflow-y: auto; margin: 0 0 14px; display: flex; flex-direction: column; gap: 8px; }
+.tour-item {
+  display: flex; flex-direction: column; gap: 2px; text-align: left; width: 100%;
+  background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+  font-family: inherit; cursor: pointer;
+}
+.tour-item:active { background: var(--bg); }
+.tour-name { font-weight: 700; font-size: 15px; color: var(--ink); font-family: var(--display); }
+.tour-meta { font-size: 12.5px; color: var(--ink-70); }
+
+/* Conflict-resolver option list */
+.linklist { display: flex; flex-direction: column; gap: 8px; margin: 0 0 14px; }
+.link-item {
+  display: flex; align-items: center; gap: 11px; text-align: left; width: 100%;
+  background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+  font-family: inherit; font-size: 14px; font-weight: 600; color: var(--ink); cursor: pointer;
+}
+.link-item:active { background: var(--bg); }
+.link-swatch { flex: 0 0 auto; width: 16px; height: 16px; border-radius: 5px; box-shadow: inset 0 0 0 2px rgba(0,0,0,.08); }
+.link-sub { font-weight: 500; font-size: 12px; color: var(--ink-70); margin-left: auto; }
+
+/* HUD counters — sits just above the bottom action bar so it never collides
+   with the top bar / editing banner. */
 .hud {
   position: absolute; left: 50%; transform: translateX(-50%);
-  top: calc(var(--bar-h) + env(safe-area-inset-top) + 10px);
-  background: rgba(255,255,255,.94); border: 1px solid var(--line); border-radius: 999px;
-  padding: 6px 14px; font-size: 12.5px; font-weight: 600; color: var(--ink);
-  display: flex; align-items: center; gap: 10px; z-index: 9; box-shadow: 0 2px 10px rgba(0,0,0,.08);
+  bottom: calc(var(--act-h) + env(safe-area-inset-bottom) + 28px);
+  background: rgba(255,255,255,.92); border: 1px solid rgba(255,255,255,.6); border-radius: 999px;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  padding: 7px 15px; font-size: 12.5px; font-weight: 600; color: var(--ink);
+  display: flex; align-items: center; gap: 10px; z-index: 9; box-shadow: 0 4px 16px rgba(0,0,0,.12);
 }
+/* Colour-coded counters: checkpoints blue, POIs red — match the map markers. */
+#counts .c-cp { color: #1971C2; font-weight: 700; }
+#counts .c-poi { color: #D7263D; font-weight: 700; }
 .hud .recdot { width: 9px; height: 9px; border-radius: 50%; background: var(--red); animation: pulse 1.2s infinite; }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
 #dist { color: var(--ink-70); font-weight: 500; }
 
-/* Bottom action bar */
+/* Bottom action bar — glassmorphic: floats over the map's lower edge with a
+   frosted, semi-transparent backdrop (modern glass look). */
 .actions {
-  flex: 0 0 auto; display: flex; gap: 6px; padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
-  background: #fff; border-top: 1px solid var(--line); z-index: 10;
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; gap: 6px; padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+  background: rgba(255,255,255,.55);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6); backdrop-filter: blur(20px) saturate(1.6);
+  border-top: 1px solid rgba(255,255,255,.55); z-index: 10;
 }
 .act {
-  flex: 1; height: var(--act-h); border: 1px solid var(--line); background: #fff; border-radius: 14px;
+  flex: 1; height: var(--act-h); border: 1px solid rgba(255,255,255,.6); background: rgba(255,255,255,.62); border-radius: 14px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   font-family: inherit; font-size: 11.5px; font-weight: 600; color: var(--ink); cursor: pointer; padding: 4px;
 }
@@ -112,6 +219,10 @@ body { display: flex; flex-direction: column; }
 
 /* Sheets (bottom modals) */
 .sheet { position: fixed; inset: 0; background: rgba(38,34,56,.45); display: flex; align-items: flex-end; justify-content: center; z-index: 100; }
+/* The conflict resolver opens DURING a save (over the save sheet), so it must
+   sit above it (and the toast) — otherwise it renders behind and the save
+   appears to hang at "Linking path…". */
+#linkSheet { z-index: 300; }
 .sheet[hidden] { display: none; }
 .sheet .card {
   width: 100%; max-width: 520px; background: #fff; border-radius: 18px 18px 0 0;
@@ -144,7 +255,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid rgba(45,106,79,.3
 
 /* Toast */
 .toast {
-  position: fixed; left: 50%; bottom: calc(var(--act-h) + 24px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  position: fixed; left: 50%; bottom: calc(var(--act-h) + 76px + env(safe-area-inset-bottom)); transform: translateX(-50%);
   background: rgba(38,34,56,.92); color: #fff; font-size: 13px; font-weight: 600; padding: 9px 16px; border-radius: 999px;
   opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 200; white-space: nowrap;
 }

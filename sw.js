@@ -22,7 +22,9 @@ self.addEventListener('fetch', function (e) {
   if (url.origin !== self.location.origin) return;
 
   if (e.request.mode === 'navigate') {
-    e.respondWith(fetch(e.request).catch(function () { return caches.match('./index.html'); }));
+    // Always revalidate HTML against the network (bypass the browser's 10-min
+    // HTTP cache from GitHub Pages) so a new deploy shows up on the next load.
+    e.respondWith(fetch(e.request, { cache: 'no-store' }).catch(function () { return caches.match('./index.html'); }));
     return;
   }
   e.respondWith(caches.match(e.request).then(function (hit) { return hit || fetch(e.request); }));
