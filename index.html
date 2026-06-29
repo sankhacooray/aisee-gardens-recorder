@@ -16,7 +16,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://api.fontshare.com/v2/css?f[]=chillax@1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
-<link rel="stylesheet" href="styles.css?v=20260614-201206" />
+<link rel="stylesheet" href="styles.css?v=20260629-224057" />
 </head>
 <body>
   <!-- Top bar -->
@@ -24,6 +24,7 @@
     <div class="title">Recorder</div>
     <select class="projsel" id="projSel" aria-label="Project" title="Project"><option value="">— project —</option></select>
     <div class="gps" id="gps"><span class="dot" id="gpsDot"></span><span id="gpsText">no fix</span></div>
+    <button class="iconbtn" id="openBtn" aria-label="Open existing tour" title="Open existing tour"><i class="fa-solid fa-folder-open"></i></button>
     <button class="iconbtn" id="helpBtn" aria-label="How it works" title="How it works"><i class="fa-solid fa-circle-question"></i></button>
     <button class="iconbtn" id="profileBtn" aria-label="Account" title="Account"><i class="fa-solid fa-circle-user"></i></button>
   </header>
@@ -39,6 +40,19 @@
 
   <!-- Map -->
   <div id="map"></div>
+
+  <!-- Editing banner — shown when extending an already-recorded tour -->
+  <div class="editbar" id="editBanner" hidden>
+    <i class="fa-solid fa-pen-to-square"></i>
+    <span class="editbar-txt">Extending <b id="editName">tour</b> — record to add to it</span>
+    <button class="editbar-x" id="editExit" title="Start a new route instead">New route</button>
+  </div>
+
+  <!-- "Too far from the tour" guard flag -->
+  <div class="farflag" id="farFlag" hidden>
+    <i class="fa-solid fa-location-arrow"></i>
+    <span>You're away from this tour's area — walk back to it to keep recording.</span>
+  </div>
 
   <!-- Live counters -->
   <div class="hud" id="hud" hidden>
@@ -72,10 +86,32 @@
     </div>
   </div>
 
+  <!-- Tour picker — open an existing route to extend -->
+  <div class="sheet" id="tourSheet" hidden>
+    <div class="card">
+      <h2>Open a tour to extend</h2>
+      <p class="hint">Pick a recorded route. Your new walk and POIs are added on top of it — the
+        existing path is kept.</p>
+      <div class="tourlist" id="tourList"><p class="hint">Loading…</p></div>
+      <div class="row"><button class="btn ghost" data-close="tourSheet">Cancel</button></div>
+    </div>
+  </div>
+
+  <!-- Conflict resolver — choose how a new segment links back to the existing path -->
+  <div class="sheet" id="linkSheet" hidden>
+    <div class="card">
+      <h2>Connect the path</h2>
+      <p class="hint" id="linkHint">There's a gap between your new walk and the existing route.
+        Pick the path to join them — the choices are drawn on the map.</p>
+      <div class="linklist" id="linkList"></div>
+      <div class="row"><button class="btn ghost" id="linkRerec">I'll re-record this bit</button></div>
+    </div>
+  </div>
+
   <!-- Save sheet -->
   <div class="sheet" id="saveSheet" hidden>
     <div class="card">
-      <h2>Save route</h2>
+      <h2 id="saveTitle">Save route</h2>
       <p class="hint" id="saveSummary"></p>
       <label>Route name *<input id="rName" type="text" placeholder="e.g. Heritage Loop" /></label>
       <label>Status
@@ -85,7 +121,7 @@
         <select id="rTracking"><option value="beacons" selected>beacons</option><option value="vslam">vslam</option><option value="hybrid">hybrid</option></select>
       </label>
       <label>Description<textarea id="rDesc" placeholder="Optional"></textarea></label>
-      <label class="check"><input type="checkbox" id="rSnap" /> Snap path to footpaths through checkpoints (Directions API) — use the raw GPS track if unsure</label>
+      <label class="check" id="rSnapRow"><input type="checkbox" id="rSnap" /> Snap path to footpaths through checkpoints (Directions API) — use the raw GPS track if unsure</label>
       <div class="row">
         <button class="btn ghost" data-close="saveSheet">Cancel</button>
         <button class="btn primary" id="saveGo">Save to backend</button>
@@ -167,6 +203,6 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="app.js?v=20260614-201206"></script>
+  <script src="app.js?v=20260629-224057"></script>
 </body>
 </html>
