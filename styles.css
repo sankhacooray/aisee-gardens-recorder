@@ -63,7 +63,7 @@ body { display: flex; flex-direction: column; }
 .proj-body {
   flex: 1 1 auto; overflow-y: auto; width: 100%; max-width: 620px; margin: 0 auto;
   padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
-  display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); align-content: start;
+  display: grid; gap: 10px; grid-template-columns: 1fr; align-content: start;
 }
 .proj-card {
   position: relative; text-align: left; background: var(--card, #fff); border: 1.5px solid var(--line);
