@@ -152,12 +152,64 @@ function bootstrap() {
     .catch(function (e) { showMapMsg('Could not reach the backend: ' + e.message); });
 }
 
+var projectsData = [];   // [{project_id, name, description}] — backs the picker
+
 function fillProjects(projects, defaultProjectId) {
+  projectsData = projects || [];
   var sel = $('projSel');
   while (sel.options.length > 1) sel.remove(1);
-  projects.forEach(function (p) { var o = document.createElement('option'); o.value = p.project_id; o.textContent = p.name; sel.appendChild(o); });
+  projectsData.forEach(function (p) { var o = document.createElement('option'); o.value = p.project_id; o.textContent = p.name; sel.appendChild(o); });
   var saved = ''; try { saved = localStorage.getItem(PROJECT_KEY) || ''; } catch (e) {}
-  sel.value = saved || defaultProjectId || ((projects[0] || {}).project_id) || '';
+  sel.value = saved || defaultProjectId || ((projectsData[0] || {}).project_id) || '';
+  syncProjLabel();
+}
+
+function projName(pid) {
+  for (var i = 0; i < projectsData.length; i++) if (projectsData[i].project_id === pid) return projectsData[i].name;
+  return '';
+}
+function syncProjLabel() {
+  var pid = $('projSel').value;
+  $('projBtnLabel').textContent = pid ? (projName(pid) || pid) : '— project —';
+}
+
+/* Full-screen project picker (replaces the native <select> dropdown). */
+function openProjectPicker() {
+  if (!projectsData.length) return toast('No projects available');
+  renderProjectCards();
+  show('projScreen');
+}
+function renderProjectCards() {
+  var list = $('projList'); list.innerHTML = '';
+  var cur = $('projSel').value;
+  projectsData.forEach(function (p) {
+    var card = document.createElement('button');
+    card.className = 'proj-card' + (p.project_id === cur ? ' sel' : '');
+    var name = document.createElement('span'); name.className = 'pc-name'; name.textContent = p.name || p.project_id;
+    card.appendChild(name);
+    if (p.description) { var d = document.createElement('span'); d.className = 'pc-desc'; d.textContent = p.description; card.appendChild(d); }
+    var count = document.createElement('span'); count.className = 'pc-count'; count.textContent = '… tours'; card.appendChild(count);
+    if (p.project_id === cur) { var t = document.createElement('i'); t.className = 'fa-solid fa-circle-check pc-tick'; card.appendChild(t); }
+    card.addEventListener('click', function () { selectProject(p.project_id); });
+    list.appendChild(card);
+    loadProjectCount(p.project_id, count);
+  });
+}
+function loadProjectCount(pid, el) {
+  if (!AUTH || !AUTH.token) { el.textContent = '— tours'; return; }
+  fetch(backendUrl() + '?action=routes&auth=' + encodeURIComponent(AUTH.token) + '&projectId=' + encodeURIComponent(pid))
+    .then(function (r) { return r.json(); })
+    .then(function (res) {
+      var n = (res && res.ok) ? (typeof res.count === 'number' ? res.count : (res.routes ? res.routes.length : null)) : null;
+      el.textContent = (n == null ? '—' : n) + ' tour' + (n === 1 ? '' : 's');
+    })
+    .catch(function () { el.textContent = '— tours'; });
+}
+function selectProject(pid) {
+  $('projSel').value = pid;
+  try { localStorage.setItem(PROJECT_KEY, pid); } catch (e) {}
+  syncProjLabel();
+  hide('projScreen');
 }
 
 /* ── Google Maps loader ──────────────────────────────────── */
@@ -217,6 +269,59 @@ function setGps(acc) {
   txt.textContent = '±' + acc + 'm';
 }
 
+/* ── Marker styling + focus pulse ────────────────────────── */
+var CP_COLOR = '#1971C2';   // checkpoints — blue (matches the counter text)
+var POI_COLOR = '#D7263D';  // POIs — red
+
+/* A gentle expanding/shrinking ring under each point to draw the eye (and stay
+ * visible even when the blue location dot sits right on top of a fresh mark).
+ * One shared rAF loop drives every halo, throttled to ~25fps. */
+var pulses = [], pulseRAF = null, pulseLast = 0;
+function pulseLoop(ts) {
+  pulseRAF = requestAnimationFrame(pulseLoop);
+  if (ts - pulseLast < 66) return;   // ~15fps is plenty for a slow, gentle pulse
+  pulseLast = ts;
+  var k = (1 - Math.cos((Date.now() % 2200) / 2200 * 2 * Math.PI)) / 2;  // 0→1→0
+  var radius = 5 + k * 8, op = 0.55 * (1 - k);
+  for (var i = 0; i < pulses.length; i++) {
+    pulses[i].setRadius(radius);
+    pulses[i].setOptions({ strokeOpacity: op, fillOpacity: op * 0.22 });
+  }
+}
+function addPulse(lat, lng, color) {
+  var c = new google.maps.Circle({ map: map, center: { lat: lat, lng: lng }, radius: 6, zIndex: 1,
+    fillColor: color, fillOpacity: .12, strokeColor: color, strokeOpacity: .5, strokeWeight: 2, clickable: false });
+  pulses.push(c);
+  if (!pulseRAF) pulseRAF = requestAnimationFrame(pulseLoop);
+  return c;
+}
+function removePulse(c) {
+  if (!c) return;
+  c.setMap(null);
+  var i = pulses.indexOf(c); if (i >= 0) pulses.splice(i, 1);
+}
+function clearPulses() {
+  pulses.forEach(function (c) { c.setMap(null); });
+  pulses = [];
+  if (pulseRAF) { cancelAnimationFrame(pulseRAF); pulseRAF = null; }
+}
+
+/* Create the numbered red POI marker + geofence ring used for both new and
+ * loaded POIs, so they look identical. */
+function poiVisual(m, n) {
+  m.marker = new google.maps.Marker({ map: map, position: { lat: m.lat, lng: m.lng }, title: m.name, zIndex: 5,
+    label: { text: String(n), color: '#fff', fontSize: '11px', fontWeight: '700' },
+    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 11, fillColor: POI_COLOR, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2.5 } });
+  m.circle = new google.maps.Circle({ map: map, center: { lat: m.lat, lng: m.lng }, radius: m.geofence_radius_m,
+    fillColor: POI_COLOR, fillOpacity: .10, strokeColor: POI_COLOR, strokeOpacity: .5, strokeWeight: 1, clickable: false });
+  m.pulse = addPulse(m.lat, m.lng, POI_COLOR);
+}
+function checkpointVisual(m) {
+  m.marker = new google.maps.Marker({ map: map, position: { lat: m.lat, lng: m.lng }, title: 'checkpoint', zIndex: 4,
+    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: CP_COLOR, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2.5 } });
+  m.pulse = addPulse(m.lat, m.lng, CP_COLOR);
+}
+
 /* ── Recording + marking ─────────────────────────────────── */
 function setRecording(on) {
   // Guard: don't let recording START while far outside a loaded tour's area.
@@ -237,8 +342,7 @@ function addCheckpoint() {
   if (!lastFix) return toast('Waiting for GPS fix…');
   if (farOutside) return toast('Walk back to the tour area first');
   var m = { kind: 'checkpoint', lat: lastFix.lat, lng: lastFix.lng, accuracy_m: lastFix.accuracy_m };
-  m.marker = new google.maps.Marker({ map: map, position: { lat: m.lat, lng: m.lng }, title: 'checkpoint',
-    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 5, fillColor: '#2D6A4F', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 } });
+  checkpointVisual(m);
   marks.push(m); afterMark('Checkpoint dropped');
 }
 
@@ -257,10 +361,7 @@ function savePoi() {
     name: name, category: $('poiCat').value.trim(), briefing_md: $('poiBrief').value.trim(),
     geofence_radius_m: Number($('poiRad').value) || 20 };
   var n = marks.filter(function (x) { return x.kind === 'poi'; }).length + 1;
-  m.marker = new google.maps.Marker({ map: map, position: { lat: m.lat, lng: m.lng }, title: name,
-    label: { text: String(n), color: '#fff', fontSize: '11px', fontWeight: '700' } });
-  m.circle = new google.maps.Circle({ map: map, center: { lat: m.lat, lng: m.lng }, radius: m.geofence_radius_m,
-    fillColor: '#2D6A4F', fillOpacity: .12, strokeColor: '#2D6A4F', strokeOpacity: .5, strokeWeight: 1 });
+  poiVisual(m, n);
   marks.push(m); hide('poiSheet'); afterMark('POI “' + name + '” dropped');
 }
 
@@ -270,6 +371,7 @@ function undo() {
   marks.pop();
   if (m.marker) m.marker.setMap(null);
   if (m.circle) m.circle.setMap(null);
+  removePulse(m.pulse);
   afterMark('Removed ' + m.kind);
 }
 function afterMark(msg) {
@@ -416,6 +518,7 @@ function showResult(routeId, editing) {
 }
 function resetRoute() {
   marks.forEach(function (m) { if (m.marker) m.marker.setMap(null); if (m.circle) m.circle.setMap(null); });
+  clearPulses();
   marks = []; trackPath = []; if (trackPoly) trackPoly.setPath([]);
   recording = false; started = false;
   // Drop any loaded-tour state so the next route starts fresh.
@@ -514,11 +617,7 @@ function addExistingPoi(p, n) {
   var m = { kind: 'poi', existing: true, poi_id: p.poi_id, lat: lat, lng: lng, accuracy_m: num0(p.accuracy_m),
     name: p.name || ('POI ' + n), category: p.category || '', briefing_md: p.briefing_md || '',
     geofence_radius_m: Number(p.geofence_radius_m) || 20 };
-  m.marker = new google.maps.Marker({ map: map, position: { lat: lat, lng: lng }, title: m.name,
-    label: { text: String(n), color: '#fff', fontSize: '11px', fontWeight: '700' },
-    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 11, fillColor: '#D7263D', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2.5 } });
-  m.circle = new google.maps.Circle({ map: map, center: { lat: lat, lng: lng }, radius: m.geofence_radius_m,
-    fillColor: '#D7263D', fillOpacity: .12, strokeColor: '#D7263D', strokeOpacity: .55, strokeWeight: 1 });
+  poiVisual(m, n);
   marks.push(m);
 }
 
@@ -526,8 +625,7 @@ function addExistingCheckpoint(w) {
   var lat = Number(w.lat), lng = Number(w.lng);
   if (isNaN(lat) || isNaN(lng)) return;
   var m = { kind: 'checkpoint', existing: true, lat: lat, lng: lng, accuracy_m: num0(w.accuracy_m) };
-  m.marker = new google.maps.Marker({ map: map, position: { lat: lat, lng: lng }, title: 'checkpoint',
-    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#1971C2', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2.5 } });
+  checkpointVisual(m);
   marks.push(m);
 }
 
@@ -762,7 +860,8 @@ function wireUi() {
   $('linkRerec').addEventListener('click', cancelLinkResolve);
   $('helpBtn').addEventListener('click', function () { show('helpScreen'); });
   $('helpClose').addEventListener('click', function () { hide('helpScreen'); });
-  $('projSel').addEventListener('change', function () { try { localStorage.setItem(PROJECT_KEY, this.value); } catch (e) {} });
+  $('projBtn').addEventListener('click', openProjectPicker);
+  $('projClose').addEventListener('click', function () { hide('projScreen'); });
   $('poiSave').addEventListener('click', savePoi);
   $('saveGo').addEventListener('click', doSave);
   $('signinBtn').addEventListener('click', signIn);
@@ -779,7 +878,7 @@ function wireUi() {
     $('profilePop').hidden = true;
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { $('profilePop').hidden = true; hide('helpScreen'); }
+    if (e.key === 'Escape') { $('profilePop').hidden = true; hide('helpScreen'); hide('projScreen'); }
   });
 }
 
