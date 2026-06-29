@@ -131,10 +131,11 @@ body { display: flex; flex-direction: column; }
 .link-swatch { flex: 0 0 auto; width: 16px; height: 16px; border-radius: 5px; box-shadow: inset 0 0 0 2px rgba(0,0,0,.08); }
 .link-sub { font-weight: 500; font-size: 12px; color: var(--ink-70); margin-left: auto; }
 
-/* HUD counters */
+/* HUD counters — sits just above the bottom action bar so it never collides
+   with the top bar / editing banner. */
 .hud {
   position: absolute; left: 50%; transform: translateX(-50%);
-  top: calc(var(--bar-h) + env(safe-area-inset-top) + 10px);
+  bottom: calc(var(--act-h) + env(safe-area-inset-bottom) + 12px);
   background: rgba(255,255,255,.94); border: 1px solid var(--line); border-radius: 999px;
   padding: 6px 14px; font-size: 12.5px; font-weight: 600; color: var(--ink);
   display: flex; align-items: center; gap: 10px; z-index: 9; box-shadow: 0 2px 10px rgba(0,0,0,.08);
@@ -196,7 +197,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid rgba(45,106,79,.3
 
 /* Toast */
 .toast {
-  position: fixed; left: 50%; bottom: calc(var(--act-h) + 24px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  position: fixed; left: 50%; bottom: calc(var(--act-h) + 58px + env(safe-area-inset-bottom)); transform: translateX(-50%);
   background: rgba(38,34,56,.92); color: #fff; font-size: 13px; font-weight: 600; padding: 9px 16px; border-radius: 999px;
   opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 200; white-space: nowrap;
 }

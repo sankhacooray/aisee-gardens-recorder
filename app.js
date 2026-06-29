@@ -512,10 +512,10 @@ function addExistingPoi(p, n) {
     name: p.name || ('POI ' + n), category: p.category || '', briefing_md: p.briefing_md || '',
     geofence_radius_m: Number(p.geofence_radius_m) || 20 };
   m.marker = new google.maps.Marker({ map: map, position: { lat: lat, lng: lng }, title: m.name,
-    label: { text: String(n), color: '#fff', fontSize: '10px', fontWeight: '700' },
-    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: '#6B7B73', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 } });
+    label: { text: String(n), color: '#fff', fontSize: '11px', fontWeight: '700' },
+    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 11, fillColor: '#D7263D', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2.5 } });
   m.circle = new google.maps.Circle({ map: map, center: { lat: lat, lng: lng }, radius: m.geofence_radius_m,
-    fillColor: '#6B7B73', fillOpacity: .10, strokeColor: '#6B7B73', strokeOpacity: .45, strokeWeight: 1 });
+    fillColor: '#D7263D', fillOpacity: .12, strokeColor: '#D7263D', strokeOpacity: .55, strokeWeight: 1 });
   marks.push(m);
 }
 
