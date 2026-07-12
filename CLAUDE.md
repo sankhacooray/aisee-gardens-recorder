@@ -1,11 +1,14 @@
-# aisee-gardens-recorder — local notes
+# aisee-tours-recorder — local notes
+
+(Renamed 2026-07-12 from `aisee-gardens-recorder` — the platform is now generalized as **Aisee
+Tours**. The GitHub repo was renamed too: `sankhacooray/aisee-tours-recorder`; old URLs redirect.)
 
 ## What this is
 
-A **mobile-first field recorder** for the Aisee × Singapore Botanic Gardens routes. A gardens/aisee
-staff member walks a route on their phone; the page captures **real GPS**, lets them **Mark POI** or
+A **mobile-first field recorder** for Aisee Tours routes (first venue: Singapore Botanic Gardens).
+A venue/aisee staff member walks a route on their phone; the page captures **real GPS**, lets them **Mark POI** or
 **Mark checkpoint** along the way, and on **Finish** posts the whole route — the walked track + the
-marked points — to the `aisee-gardens-backend-appscript` JSON API (`route.create`). The route then
+marked points — to the `aisee-tours-appscript` JSON API (`route.create`). The route then
 renders on the backend **dashboard** map and can be simulated there.
 
 It is a **standalone static page** (no build step, no server of its own) — deliberately *not* part of
@@ -26,7 +29,7 @@ the Apps Script dashboard, because **Apps Script's HtmlService iframe blocks `na
   version-stamped by `deploy.py`).
 - `deploy.py` — publish to GitHub Pages (HTTPS, for on-device testing). Needs a git `origin` remote.
 
-There is **no server file** — this is a pure static site. The backend (`aisee-gardens-backend-appscript`)
+There is **no server file** — this is a pure static site. The backend (`aisee-tours-appscript`)
 is the only server: it handles auth (the shared `API_TOKEN`) and stores recorded routes in the Sheet.
 
 ## Configuration — none to paste
@@ -90,7 +93,7 @@ production; GitHub Pages serves the deployed site.
 Live for testing at **<https://aiseecoder.sankhacooray.com/>** (deliberately temporary — meant to be
 torn down later).
 
-- **Repo:** `git@github.com:sankhacooray/aisee-gardens-recorder.git` (public; pushed over HTTPS via the
+- **Repo:** `git@github.com:sankhacooray/aisee-tours-recorder.git` (public; pushed over HTTPS via the
   `gh` credential helper because no SSH key is loaded in this env).
 - **Deploy:** `CNAME=aiseecoder.sankhacooray.com python3 deploy.py` → pushes the `gh-pages` branch.
   GitHub Pages serves it; the `CNAME` file pins the custom domain.
@@ -104,4 +107,4 @@ torn down later).
 
 1. Delete the Cloudflare `aiseecoder` CNAME record.
 2. `removeReturnUrl('https://aiseecoder.sankhacooray.com/')` in the backend editor.
-3. Disable GitHub Pages / archive or delete `sankhacooray/aisee-gardens-recorder`.
+3. Disable GitHub Pages / archive or delete `sankhacooray/aisee-tours-recorder`.

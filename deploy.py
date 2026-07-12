@@ -7,7 +7,7 @@ pushes. Auto-creates gh-pages if missing.
 
 Prerequisites: this folder must be a git repo with an `origin` remote, e.g.
     git init && git add -A && git commit -m init
-    git remote add origin git@github.com:<you>/aisee-gardens-recorder.git
+    git remote add origin git@github.com:<you>/aisee-tours-recorder.git
 Then: python3 deploy.py   (optionally set CNAME via env: CNAME=recorder.example.com)
 """
 import os, shutil, subprocess, tempfile, time, sys

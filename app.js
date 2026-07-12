@@ -1,5 +1,5 @@
-/* Gardens Route Recorder — capture a real GPS walk, mark POIs/checkpoints,
- * and POST the route to the aisee-gardens-backend Apps Script API.
+/* Tours Route Recorder — capture a real GPS walk, mark POIs/checkpoints,
+ * and POST the route to the aisee-tours-backend Apps Script API.
  *
  * No build step, no pasted config. The backend is a LOGIN PROXY: "Sign in with
  * Google" navigates the tab to the backend (Google-gated), which redirects back
