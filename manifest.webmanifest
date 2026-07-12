@@ -1,7 +1,7 @@
 {
-  "name": "Gardens Route Recorder",
+  "name": "Tours Route Recorder",
   "short_name": "Recorder",
-  "description": "Walk a route, mark POIs and checkpoints, and save it to the Aisee gardens backend.",
+  "description": "Walk a route, mark POIs and checkpoints, and save it to the Aisee tours backend.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
