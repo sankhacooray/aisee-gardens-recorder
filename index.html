@@ -16,7 +16,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://api.fontshare.com/v2/css?f[]=chillax@1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
-<link rel="stylesheet" href="styles.css?v=20260712-230642" />
+<link rel="stylesheet" href="styles.css?v=20260716-124615" />
 </head>
 <body>
   <!-- Top bar -->
@@ -40,6 +40,7 @@
       <span class="pop-name" id="popName">—</span>
       <span class="pop-email" id="popEmail"></span>
     </div>
+    <button class="btn ghost" id="diagBtn"><i class="fa-solid fa-triangle-exclamation"></i>&nbsp; Diagnostics</button>
     <button class="btn ghost" id="signOutBtn"><i class="fa-solid fa-right-from-bracket"></i>&nbsp; Sign out</button>
   </div>
 
@@ -192,6 +193,37 @@
     </div>
   </div>
 
+  <!-- Resume unsaved route (autosaved draft recovered on load) -->
+  <div class="sheet" id="resumeSheet" hidden>
+    <div class="card">
+      <h2>Resume unsaved route?</h2>
+      <p class="hint">We found a route you were recording that was never saved. You can bring it
+        back, or discard it and start fresh.</p>
+      <p class="hint" id="resumeSummary" style="font-weight:600"></p>
+      <div class="row">
+        <button class="btn ghost" id="resumeDiscard">Discard</button>
+        <button class="btn primary" id="resumeGo">Resume</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Diagnostics — recent errors, for reporting issues -->
+  <div class="helpscreen" id="diagScreen" hidden>
+    <header class="help-bar">
+      <span class="help-title">Diagnostics</span>
+      <button class="iconbtn" id="diagClose" aria-label="Close" title="Close"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <div class="help-body">
+      <p class="help-intro">The most recent errors on this device. Copy this and send it when
+        reporting a problem.</p>
+      <div class="row" style="margin-bottom:12px">
+        <button class="btn ghost" id="diagCopy"><i class="fa-solid fa-copy"></i>&nbsp; Copy</button>
+        <button class="btn ghost" id="diagClear"><i class="fa-solid fa-trash"></i>&nbsp; Clear</button>
+      </div>
+      <pre id="diagBody" style="white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.5;background:#f4f4f2;border-radius:10px;padding:12px;margin:0"></pre>
+    </div>
+  </div>
+
   <!-- Sign-in overlay (shown until authenticated via the backend login proxy) -->
   <div class="sheet signin" id="signinSheet" hidden>
     <div class="card signin-card">
@@ -221,6 +253,6 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="app.js?v=20260712-230642"></script>
+  <script src="app.js?v=20260716-124615"></script>
 </body>
 </html>

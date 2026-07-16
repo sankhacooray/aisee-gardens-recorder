@@ -1,9 +1,9 @@
 /* Service worker — versioned cache.
- * Bump CACHE on each deploy (deploy.py substitutes 20260712-230642).
+ * Bump CACHE on each deploy (deploy.py substitutes 20260716-124615).
  * Navigation: network-first (fresh HTML). Static assets: cache-first (offline shell).
  * Never caches the Google Maps script or the backend API (always network). */
 
-var CACHE = 'recorder-20260712-230642';
+var CACHE = 'recorder-20260716-124615';
 var ASSETS = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', function (e) {

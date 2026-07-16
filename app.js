@@ -17,6 +17,8 @@ var SESSION_KEY  = 'aiseeRecorder.session';   // { email, name, token }
 var NONCE_KEY    = 'aiseeRecorder.nonce';
 var PROJECT_KEY  = 'aiseeRecorder.projectId';
 var OVERRIDE_KEY = 'aiseeRecorder.backendOverride';
+var DRAFT_KEY    = 'aiseeRecorder.draft';     // in-progress route, autosaved so a lock/reload can't lose it
+var ERRLOG_KEY   = 'aiseeRecorder.errlog';    // rolling ring of recent errors, viewable from the profile menu
 
 var $ = function (id) { return document.getElementById(id); };
 
@@ -25,6 +27,65 @@ function returnUrl()  { return location.href.split('#')[0].split('?')[0]; }
 function loadSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY)) || null; } catch (e) { return null; } }
 function saveSession(s) { try { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch (e) {} }
 function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch (e) {} AUTH = null; }
+
+function uuid() {
+  try { if (crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+/* ── Error log ───────────────────────────────────────────────
+ * iOS Safari collapses a failed `Response.json()` into the opaque "The string
+ * did not match the expected pattern." With no console on a phone, errors were
+ * invisible. We keep the last ~40 here (with HTTP status + a body snippet where
+ * we can get one) so any failure is reportable from the profile menu. */
+function logError(context, err, extra) {
+  try {
+    var log = getErrorLog();
+    log.push({
+      t: new Date().toISOString(),
+      ctx: context,
+      msg: (err && err.message) ? err.message : String(err),
+      extra: extra || null,
+      ua: navigator.userAgent
+    });
+    while (log.length > 40) log.shift();
+    localStorage.setItem(ERRLOG_KEY, JSON.stringify(log));
+  } catch (e) {}
+}
+function getErrorLog() { try { return JSON.parse(localStorage.getItem(ERRLOG_KEY)) || []; } catch (e) { return []; } }
+function clearErrorLog() { try { localStorage.removeItem(ERRLOG_KEY); } catch (e) {} }
+
+/* POST JSON to the backend and return the parsed reply. Reads the body as TEXT
+ * first, then parses — so when the Apps Script 302-follow hands back an HTML
+ * error/login page (or the fetch is cut short by iOS backgrounding the tab), we
+ * raise a legible "HTTP <status>: <snippet>" instead of the WebKit pattern error,
+ * and record it. `context` labels the call in the error log. */
+function postJson(payload, context) {
+  return fetch(backendUrl(), { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) })
+    .then(function (r) { return r.text().then(function (text) { return { status: r.status, ok: r.ok, text: text }; }); })
+    .then(function (resp) {
+      var data;
+      try { data = JSON.parse(resp.text); }
+      catch (e) {
+        var snippet = (resp.text || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+        var msg = 'HTTP ' + resp.status + ' — backend did not return JSON' + (snippet ? ': ' + snippet : ' (empty response)');
+        var err = new Error(msg);
+        logError(context || 'postJson', err, { status: resp.status, action: payload && payload.action });
+        throw err;
+      }
+      if (!data || !data.ok) {
+        var rejErr = new Error((data && data.error) || 'backend rejected the request');
+        logError(context || 'postJson', rejErr, { status: resp.status, action: payload && payload.action });
+        throw rejErr;
+      }
+      return data;
+    }, function (netErr) {
+      logError(context || 'postJson', netErr, { network: true, action: payload && payload.action });
+      throw netErr;
+    });
+}
 
 /* ── State ───────────────────────────────────────────────── */
 var AUTH = null;          // { email, name, token }
@@ -47,6 +108,40 @@ var linkTempPolys = [];        // temporary alternative-path polylines in the re
 var NEAR_ATTACH_M = 40;        // a new segment endpoint within this of the base counts as "joined to it"
 var LINK_GAP_M    = 12;        // joins wider than this open the conflict resolver; below, join straight
 var AREA_MARGIN_M = 150;       // min buffer around the tour box before "too far" trips
+
+/* ── Draft autosave ──────────────────────────────────────────
+ * Everything the recorder holds in memory (marks, GPS track, editing context)
+ * is mirrored to localStorage after each mark and periodically while recording,
+ * so a phone lock that evicts the backgrounded tab — the "10+ POIs, came back to
+ * a blank page" report — can be recovered on the next load. */
+var saveOpId = null;           // stable idempotency key for the current route's save; survives retries + reloads
+var lastDraftAt = 0;           // throttle stamp for autosave during a walk
+
+function markData(m) {
+  return { kind: m.kind, existing: !!m.existing, poi_id: m.poi_id || null,
+    lat: m.lat, lng: m.lng, accuracy_m: m.accuracy_m,
+    name: m.name || '', category: m.category || '', briefing_md: m.briefing_md || '',
+    geofence_radius_m: m.geofence_radius_m };
+}
+/* True unsaved work worth recovering — a walked track, or any NEW (non-loaded) mark. */
+function hasUnsavedWork() {
+  return trackPath.length > 0 || marks.some(function (m) { return !m.existing; });
+}
+function saveDraft(force) {
+  if (!hasUnsavedWork()) { clearDraft(); return; }
+  var now = Date.now();
+  if (!force && now - lastDraftAt < 4000) return;   // during a walk onPos fires ~1/s; don't thrash storage
+  lastDraftAt = now;
+  var lr = loadedRoute ? { route_id: loadedRoute.route_id, name: loadedRoute.name, description: loadedRoute.description,
+    status: loadedRoute.status, tracking_mode: loadedRoute.tracking_mode, content_version: loadedRoute.content_version } : null;
+  var draft = { v: 1, savedAt: now, projectId: $('projSel').value,
+    editingRouteId: editingRouteId, loadedVersion: loadedVersion, loadedRoute: lr,
+    existingPath: existingPath, trackPath: trackPath, started: started, saveOpId: saveOpId,
+    marks: marks.map(markData) };
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch (e) { logError('saveDraft', e); }
+}
+function clearDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
+function loadDraft() { try { return JSON.parse(localStorage.getItem(DRAFT_KEY)) || null; } catch (e) { return null; } }
 
 /* ── Boot ────────────────────────────────────────────────── */
 window.addEventListener('load', function () {
@@ -146,7 +241,7 @@ function bootstrap() {
       if (!mapsKey) { showMapMsg('No Maps key set on the backend — run setMapsApiKey() in the editor.'); return; }
       ensureMaps(mapsKey, function (ok) {
         if (!ok) { showMapMsg('Google Maps failed to load — check the key, enabled APIs, and billing.'); return; }
-        initMap(); startGeo();
+        initMap(); startGeo(); maybeOfferRestore();
       });
     })
     .catch(function (e) { showMapMsg('Could not reach the backend: ' + e.message); });
@@ -258,6 +353,7 @@ function onPos(pos) {
   if (accCircle) { accCircle.setCenter(ll); accCircle.setRadius(Math.max(c.accuracy, 3)); }
   if (recording) {
     trackPath.push(ll); trackPoly.setPath(trackPath); updateDist();
+    saveDraft(false);   // throttled (≤ every 4s) so a lock mid-walk keeps the track
   }
   if (tourBox) checkArea();
   if (follow && map) map.panTo(ll);
@@ -336,6 +432,7 @@ function setRecording(on) {
     ['cpBtn', 'poiBtn', 'finBtn'].forEach(function (id) { $(id).disabled = false; });
     if (lastFix) { trackPath.push({ lat: lastFix.lat, lng: lastFix.lng }); trackPoly.setPath(trackPath); }
   }
+  saveDraft(true);   // capture the record/pause/resume transition
 }
 
 function addCheckpoint() {
@@ -377,6 +474,7 @@ function undo() {
 function afterMark(msg) {
   updateCounts();
   $('undoBtn').disabled = !marks.some(function (m) { return !m.existing; });
+  saveDraft(true);   // persist immediately after every checkpoint / POI / undo
   toast(msg);
 }
 
@@ -464,16 +562,20 @@ function doSave() {
       if (loadedVersion != null) payload.expected_content_version = loadedVersion;
     } else {
       payload.action = 'route.create';
+      // Stable per-route idempotency key: reused across retries (and reloads, via
+      // the draft) so a dropped response can't create duplicate routes. The
+      // backend returns the first route it made for this key instead of a copy.
+      if (!saveOpId) saveOpId = uuid();
+      payload.client_op_id = saveOpId;
     }
     msg.textContent = 'Saving…';
-    fetch(backendUrl(), { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) })
-      .then(function (r) { return r.json(); })
+    postJson(payload, editing ? 'route.update' : 'route.create')
       .then(function (res) {
-        if (!res || !res.ok) throw new Error(res && res.error || 'backend rejected the route');
         if (editing && res.content_version != null) loadedVersion = Number(res.content_version);
+        saveOpId = null; clearDraft();   // committed — this route is no longer an unsaved draft
         hide('saveSheet'); showResult(res.routeId || editingRouteId, editing);
       })
-      .catch(function (e) { msg.textContent = 'Failed: ' + e.message; msg.className = 'msg err'; });
+      .catch(function (e) { msg.textContent = 'Failed: ' + e.message + ' — tap Save to retry (no duplicate will be created).'; msg.className = 'msg err'; });
   };
   var onErr = function (err) { msg.textContent = err; msg.className = 'msg err'; };
 
@@ -521,6 +623,9 @@ function resetRoute() {
   clearPulses();
   marks = []; trackPath = []; if (trackPoly) trackPoly.setPath([]);
   recording = false; started = false;
+  // Starting fresh: drop the idempotency key + any recovered draft so the next
+  // route is genuinely new (a new save mints a new client_op_id).
+  saveOpId = null; clearDraft();
   // Drop any loaded-tour state so the next route starts fresh.
   editingRouteId = null; loadedRoute = null; loadedVersion = null;
   existingPath = []; if (existingPoly) { existingPoly.setMap(null); existingPoly = null; }
@@ -530,6 +635,80 @@ function resetRoute() {
   $('recBtn').disabled = false;
   ['cpBtn', 'poiBtn', 'finBtn', 'undoBtn'].forEach(function (id) { $(id).disabled = true; });
   updateCounts(); $('dist').textContent = '';
+}
+
+/* ── Draft recovery ──────────────────────────────────────────
+ * Called once the map is live. If an autosaved draft holds real work, offer to
+ * bring it back rather than silently resuming (the user may have meant to start
+ * fresh). Rebuilds every mark + the GPS track + any editing context. */
+var pendingDraft = null;
+function maybeOfferRestore() {
+  var d = loadDraft();
+  if (!d || !Array.isArray(d.marks)) return;
+  var hasWork = (d.trackPath && d.trackPath.length) || d.marks.some(function (m) { return !m.existing; });
+  if (!hasWork) { clearDraft(); return; }
+  if (d.savedAt && (Date.now() - d.savedAt) > 24 * 3600 * 1000) { clearDraft(); return; }  // stale → drop
+  pendingDraft = d;
+  var np = d.marks.filter(function (m) { return m.kind === 'poi' && !m.existing; }).length;
+  var cp = d.marks.filter(function (m) { return m.kind === 'checkpoint' && !m.existing; }).length;
+  var pts = d.trackPath ? d.trackPath.length : 0;
+  var proj = projName(d.projectId) || d.projectId || '';
+  $('resumeSummary').textContent = pts + ' GPS point' + (pts === 1 ? '' : 's') + ' · ' +
+    np + ' POI' + (np === 1 ? '' : 's') + ' · ' + cp + ' checkpoint' + (cp === 1 ? '' : 's') +
+    (d.editingRouteId ? ' · extending a tour' : '') + (proj ? ' · ' + proj : '') +
+    (d.savedAt ? ' · ' + timeAgo(d.savedAt) : '');
+  show('resumeSheet');
+}
+function restoreDraft(d) {
+  resetRoute();   // clears the map + state (and the on-disk draft; d is already in memory)
+  if (d.projectId) {
+    var sel = $('projSel');
+    var known = Array.prototype.some.call(sel.options, function (o) { return o.value === d.projectId; });
+    if (known) { sel.value = d.projectId; try { localStorage.setItem(PROJECT_KEY, d.projectId); } catch (e) {} syncProjLabel(); }
+  }
+  saveOpId = d.saveOpId || null;
+
+  if (d.editingRouteId) {
+    editingRouteId = d.editingRouteId;
+    loadedRoute = d.loadedRoute || null;
+    loadedVersion = (d.loadedVersion != null && d.loadedVersion !== '') ? Number(d.loadedVersion) : null;
+    existingPath = Array.isArray(d.existingPath) ? d.existingPath.map(function (c) { return { lat: Number(c.lat), lng: Number(c.lng) }; }) : [];
+    if (existingPath.length) {
+      existingPoly = new google.maps.Polyline({ map: map, path: existingPath,
+        strokeColor: '#6B7B73', strokeOpacity: .9, strokeWeight: 5,
+        icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: .9, scale: 2.5 }, offset: '0', repeat: '14px' }] });
+    }
+    $('editName').textContent = (loadedRoute && loadedRoute.name) || 'tour';
+    $('editBanner').hidden = false;
+  }
+
+  var poiN = 0;
+  d.marks.forEach(function (md) {
+    var m = { kind: md.kind, existing: !!md.existing, lat: Number(md.lat), lng: Number(md.lng),
+      accuracy_m: md.accuracy_m, name: md.name || '', category: md.category || '',
+      briefing_md: md.briefing_md || '', geofence_radius_m: Number(md.geofence_radius_m) || 20 };
+    if (md.poi_id) m.poi_id = md.poi_id;
+    if (m.kind === 'poi') { poiN++; poiVisual(m, poiN); } else checkpointVisual(m);
+    marks.push(m);
+  });
+
+  trackPath = Array.isArray(d.trackPath) ? d.trackPath.map(function (c) { return { lat: Number(c.lat), lng: Number(c.lng) }; }) : [];
+  if (trackPoly) trackPoly.setPath(trackPath);
+  started = !!d.started; recording = false;
+
+  $('hud').hidden = false;
+  var canPlace = !!editingRouteId || started;
+  ['cpBtn', 'poiBtn', 'finBtn'].forEach(function (id) { $(id).disabled = !canPlace; });
+  $('recBtn').classList.remove('on');
+  $('recBtn').querySelector('span:last-child').textContent = started ? 'Resume' : 'Record';
+  $('recBtn').disabled = false; $('recDot').hidden = true;
+  $('undoBtn').disabled = !marks.some(function (m) { return !m.existing; });
+
+  computeTourBox(); updateCounts(); updateDist();
+  if (tourBox) fitTour();
+  if (lastFix) checkArea();
+  saveDraft(true);   // re-persist under the recovered state
+  toast('Recovered your unsaved route');
 }
 
 /* ── Open & extend an existing tour ──────────────────────── */
@@ -847,6 +1026,29 @@ function toggleProfile() {
 }
 function signOut() { clearSession(); hide('profilePop'); showSignIn('Signed out.'); }
 
+/* ── Diagnostics (recent errors) ─────────────────────────── */
+function openDiagnostics() {
+  hide('profilePop');
+  var log = getErrorLog().slice().reverse();   // newest first
+  var body = $('diagBody');
+  if (!log.length) { body.textContent = 'No errors recorded. 🎉'; }
+  else {
+    body.textContent = log.map(function (e) {
+      var when = e.t ? e.t.replace('T', ' ').replace(/\.\d+Z$/, 'Z') : '';
+      var ex = e.extra ? ('  [' + Object.keys(e.extra).map(function (k) { return k + '=' + e.extra[k]; }).join(', ') + ']') : '';
+      return when + '  ' + (e.ctx || '?') + '\n  ' + e.msg + ex;
+    }).join('\n\n');
+  }
+  show('diagScreen');
+}
+function copyDiagnostics() {
+  var log = getErrorLog();
+  var text = 'Aisee Tours Recorder — error log (' + log.length + ')\n' + navigator.userAgent + '\n\n' + JSON.stringify(log, null, 2);
+  var done = function () { toast('Copied to clipboard'); };
+  try { navigator.clipboard.writeText(text).then(done, function () { toast('Copy failed — select the text manually'); }); }
+  catch (e) { toast('Copy not supported — select the text manually'); }
+}
+
 /* ── UI wiring ───────────────────────────────────────────── */
 function wireUi() {
   $('recBtn').addEventListener('click', function () { setRecording(!recording); });
@@ -867,9 +1069,20 @@ function wireUi() {
   $('signinBtn').addEventListener('click', signIn);
   $('signOutBtn').addEventListener('click', signOut);
   $('resNew').addEventListener('click', resetRoute);
+  $('diagBtn').addEventListener('click', openDiagnostics);
+  $('diagClose').addEventListener('click', function () { hide('diagScreen'); });
+  $('diagCopy').addEventListener('click', copyDiagnostics);
+  $('diagClear').addEventListener('click', function () { clearErrorLog(); openDiagnostics(); toast('Error log cleared'); });
+  $('resumeGo').addEventListener('click', function () { hide('resumeSheet'); if (pendingDraft) { restoreDraft(pendingDraft); pendingDraft = null; } });
+  $('resumeDiscard').addEventListener('click', function () { hide('resumeSheet'); pendingDraft = null; clearDraft(); toast('Discarded the unsaved route'); });
   document.querySelectorAll('[data-close]').forEach(function (b) {
     b.addEventListener('click', function () { hide(b.getAttribute('data-close')); });
   });
+
+  // Last-ditch persistence: flush the draft when the tab is hidden or torn down,
+  // which on iOS is the moment before the OS may evict a backgrounded page.
+  document.addEventListener('visibilitychange', function () { if (document.hidden) saveDraft(true); });
+  window.addEventListener('pagehide', function () { saveDraft(true); });
 
   // Dismiss the profile balloon on an outside click or Escape.
   document.addEventListener('click', function (e) {
@@ -886,5 +1099,12 @@ function wireUi() {
 function show(id) { $(id).hidden = false; }
 function hide(id) { $(id).hidden = true; }
 function fmt(n) { return Number(n).toFixed(5); }
+function timeAgo(ms) {
+  var s = Math.round((Date.now() - ms) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.round(s / 60) + ' min ago';
+  if (s < 86400) return Math.round(s / 3600) + ' h ago';
+  return Math.round(s / 86400) + ' d ago';
+}
 var toastT;
 function toast(t) { var el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(function () { el.classList.remove('show'); }, 1900); }
