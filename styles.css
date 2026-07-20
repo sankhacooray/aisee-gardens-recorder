@@ -26,10 +26,10 @@ body { display: flex; flex-direction: column; }
 .bar {
   height: calc(var(--bar-h) + env(safe-area-inset-top));
   padding-top: env(safe-area-inset-top);
-  display: flex; align-items: center; gap: 9px; padding-left: 16px; padding-right: 12px;
+  display: flex; align-items: center; gap: 6px; padding-left: 14px; padding-right: 10px;
   background: var(--purple-deep); color: #fff; flex: 0 0 auto; z-index: 10;
 }
-.title { font-weight: 700; font-size: 16px; font-family: var(--display); letter-spacing: -0.01em; }
+.title { flex: 0 0 auto; font-weight: 700; font-size: 16px; font-family: var(--display); letter-spacing: -0.01em; }
 .sheet h2 { font-family: var(--display); letter-spacing: -0.01em; }
 .projsel {
   max-width: 40vw; font-family: inherit; font-size: 13px; color: #fff;
@@ -42,7 +42,10 @@ body { display: flex; flex-direction: column; }
 
 /* Project chip in the top bar — opens the full-screen picker. */
 .projbtn {
-  max-width: 44vw; display: flex; align-items: center; gap: 7px; cursor: pointer;
+  /* The only flexible item in the bar: it shrinks (min-width:0 + ellipsis) so a
+     long project name can never push the right-hand icons off-screen. */
+  flex: 0 1 auto; min-width: 0; max-width: 42vw;
+  display: flex; align-items: center; gap: 7px; cursor: pointer;
   font-family: inherit; font-size: 13px; font-weight: 600; color: #fff;
   background-color: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25);
   border-radius: 8px; padding: 7px 10px;
@@ -79,13 +82,13 @@ body { display: flex; flex-direction: column; }
   background: var(--chip, #eef3f0); border-radius: 999px; padding: 3px 10px;
 }
 .proj-card .pc-tick { position: absolute; top: 12px; right: 13px; color: var(--purple); font-size: 16px; }
-.gps { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-family: var(--mono); opacity: .95; }
+.gps { flex: 0 0 auto; margin-left: auto; display: flex; align-items: center; gap: 5px; font-size: 12px; font-family: var(--mono); opacity: .95; }
 .gps .dot { width: 9px; height: 9px; border-radius: 50%; background: #c0392b; box-shadow: 0 0 0 0 rgba(255,255,255,.4); }
 .gps .dot.ok { background: #2ecc71; }
 .gps .dot.mid { background: #f1c40f; }
 .iconbtn {
-  flex: 0 0 auto; background: none; border: 0; color: #fff; padding: 4px;
-  font-size: 30px; line-height: 1; cursor: pointer;
+  flex: 0 0 auto; background: none; border: 0; color: #fff; padding: 6px;
+  font-size: 20px; line-height: 1; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
 }
 
@@ -204,18 +207,21 @@ body { display: flex; flex-direction: column; }
   border-top: 1px solid rgba(255,255,255,.55); z-index: 10;
 }
 .act {
-  flex: 1; height: var(--act-h); border: 1px solid rgba(255,255,255,.6); background: rgba(255,255,255,.62); border-radius: 14px;
+  /* Equal-width columns: flex-basis 0 + grow 1 means every button gets exactly
+     1/5 of the row regardless of its label length. min-width:0 lets long labels
+     ("Checkpoint") ellipsis/shrink instead of stretching their column. */
+  flex: 1 1 0; min-width: 0; height: var(--act-h); border: 1px solid rgba(255,255,255,.6); background: rgba(255,255,255,.62); border-radius: 14px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   font-family: inherit; font-size: 11.5px; font-weight: 600; color: var(--ink); cursor: pointer; padding: 4px;
 }
 .act .ico { font-size: 22px; line-height: 1; }
+.act > span:not(.ico) { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .act:disabled { opacity: .4; }
 .act.rec { background: var(--red); border-color: var(--red); color: #fff; }
 .act.rec.on { background: var(--ink); border-color: var(--ink); }
 .act.rec.on .ico .fa-solid::before { content: "\f04d"; } /* fa-stop while recording */
 .act.fin { background: var(--green); border-color: var(--green); color: #fff; }
 .act.fin:disabled { background: #fff; color: var(--ink); border-color: var(--line); }
-.act.undo { flex: .7; }
 
 /* Sheets (bottom modals) */
 .sheet { position: fixed; inset: 0; background: rgba(38,34,56,.45); display: flex; align-items: flex-end; justify-content: center; z-index: 100; }

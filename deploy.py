@@ -37,6 +37,16 @@ def main():
             run(["git", "checkout", "--orphan", "gh-pages"], cwd=tmp)
             run(["git", "rm", "-rf", "."], cwd=tmp)
 
+        # Preserve any custom domain already on the branch. deploy.py wipes the
+        # tree below, so read the existing CNAME first and default to it when the
+        # env var isn't set — otherwise a plain `python3 deploy.py` silently drops
+        # the custom domain (aiseecoder.sankhacooray.com) and breaks the URL.
+        existing_cname = ""
+        cpath = os.path.join(tmp, "CNAME")
+        if os.path.exists(cpath):
+            with open(cpath) as fh:
+                existing_cname = fh.read().strip()
+
         for n in os.listdir(tmp):
             if n != ".git":
                 p = os.path.join(tmp, n)
@@ -65,7 +75,7 @@ def main():
             fh.write(idx)
 
         open(os.path.join(tmp, ".nojekyll"), "w").close()
-        cname = os.environ.get("CNAME")
+        cname = os.environ.get("CNAME") or existing_cname
         if cname:
             with open(os.path.join(tmp, "CNAME"), "w") as fh:
                 fh.write(cname + "\n")
